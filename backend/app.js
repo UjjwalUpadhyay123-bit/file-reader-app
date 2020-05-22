@@ -1,68 +1,59 @@
-const express = require('express');
-const path = require('path');
-const favicon = require('serve-favicon');
-const logger = require('morgan');
-const cookieParser = require('cookie-parser');
-const bodyParser = require('body-parser');
-const fileUpload = require('express-fileupload');
-const cors = require('cors');
-var fs = require('fs'); 
+var express = require("express");
+var app = express();
+var bodyParser = require("body-parser");
+var fs = require("fs");
+var cors = require('cors');
+var multer = require("multer");
+var path = require("path");
 
-const app = express();
-
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
-
-// uncomment after placing your favicon in /public
-//app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
-app.use(logger('dev'));
+let fileName = "";
+// Create application/x-www-form-urlencoded parser
+var urlencodedParser = bodyParser.urlencoded({ extended: false });
 app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(fileUpload());
-app.use('/public', express.static(__dirname + '/public'));
 
-
-app.post('/upload', (req, res, next) => {
-  console.log(req);
-  let imageFile = req.files.file;
-  let dataV = "";
-
-  imageFile.mv(`${__dirname}/public/${req.body.filename}.txt`, function(err) {
-    if (err) {
-      return res.status(500).send(err);
+var Storage = multer.diskStorage({
+    destination: function (req, file, callback) {
+        callback(null, "./upload");
+    },
+    filename: function (req, file, callback) {
+        fileName = "dummy.txt";
+        callback(null, fileName);
     }
-    fs.readFile(`${__dirname}/public/${req.body.filename}.txt`, 'utf8', function(err, data){ 
-      dataV = data;
-  }); 
+});
 
-    res.end(dataV);
-  });
 
+
+var upload = multer({
+    storage: Storage
+}).array("file", 3); //Field name and max count
+
+app.get('/', function (req, res) {
+    res.send('home');
 })
 
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  const err = new Error('Not Found');
-  err.status = 404;
-  next(err);
+app.post("/upload", function (req, res) {
+    // console.log("file upload", req);
+
+    upload(req, res, function (err) {
+        if (err instanceof multer.MulterError) {
+            return res.status(500).json(err)
+        } else if (err) {
+            return res.status(500).json(err)
+        }
+
+        fs.readFile('upload/dummy.txt', 'utf8', function (err, data) {
+            if (err) throw err;
+            console.log(data);
+            return res.send(data);
+        });
+
+
+    })
 });
 
-// error handler
-app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
+var server = app.listen(8000, function () {
+    var host = server.address().address;
+    var port = server.address().port;
 
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
+    console.log("Example app listening at http://%s:%s", host, port);
 });
-
-app.listen(8000, () => {
-  console.log('8000');
-});
-
-module.exports = app;
